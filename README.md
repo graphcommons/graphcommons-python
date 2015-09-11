@@ -17,6 +17,7 @@ pip install graphcommons
 ```python
 >>> from graphcommons import GraphCommons
 >>> graphcommons = GraphCommons('<YOUR_API_KEY>')
+>>> graphcommons.status()
 {u'msg': u'Working'}
 ```
 
