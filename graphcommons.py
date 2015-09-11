@@ -16,7 +16,7 @@ class Entity(dict):
 
         return '%s: %s' % (
             self.__class__.__name__,
-            _repr.encode("utf-8")
+            printable.encode("utf-8")
         )
 
 
