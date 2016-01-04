@@ -57,6 +57,10 @@ class Graph(Entity):
 class GraphCommonsException(Exception):
     def __init__(self, status_code, message):
         self.status_code = status_code
+
+        if isinstance(message, unicode):
+            message = message.encode("utf-8")  # Otherwise, it will not be printed.
+
         self.message = message
 
     def __str__(self):
