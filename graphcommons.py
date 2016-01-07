@@ -57,6 +57,10 @@ class Graph(Entity):
 class GraphCommonsException(Exception):
     def __init__(self, status_code, message):
         self.status_code = status_code
+
+        if isinstance(message, unicode):
+            message = message.encode("utf-8")  # Otherwise, it will not be printed.
+
         self.message = message
 
     def __str__(self):
@@ -124,4 +128,13 @@ class GraphCommons(object):
             kwargs['signals'] = map(dict, signals)
         endpoint = 'graphs/%s/add' % id
         response = self.make_request('put', endpoint, data=kwargs)
+        return Graph(**response.json()['graph'])
+
+    def clear_graph(self, graph_id):
+        graph = self.graphs(graph_id)
+        # Remove all nodes. (This also removes all edges.)
+        signals = map(lambda node: dict(action="node_delete", id=node.id), graph.nodes)
+        endpoint = "graphs/{}/add".format(graph_id)
+        kwargs = dict(signals=signals)
+        response = self.make_request("put", endpoint, data=kwargs)
         return Graph(**response.json()['graph'])
