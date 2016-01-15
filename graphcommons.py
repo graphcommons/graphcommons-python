@@ -1,4 +1,5 @@
 from requests.api import request
+from itertools import chain
 
 
 def extend(base, name=None, **kwargs):
@@ -20,11 +21,66 @@ class Entity(dict):
         )
 
 
-Edge = extend(Entity, 'Edge')
-Node = extend(Entity, 'Node')
-EdgeType = extend(Entity, 'EdgeType')
-NodeType = extend(Entity, 'NodeType')
 Signal = extend(Entity, 'Signal')
+Path = extend(Entity, 'Path')
+
+
+class Edge(Entity):
+
+    def to_signal(self, action, graph):
+        # signal types: create or update
+        action = "edge_%s" % action
+
+        from_id, to_id = map(self.get, ('from', 'to'))
+        from_node = graph.get_node(from_id)
+        to_node = graph.get_node(to_id)
+        kwargs = dict(action=action,
+                      name=self.edge_type,
+                      from_name=from_node.name,
+                      from_type=from_node.type,
+                      to_name=to_node.name,
+                      to_type=to_node.type,
+                      reference=self.get('reference', None),
+                      weight=self.get('weight'),
+                      properties=self.properties)
+        return Signal(**kwargs)
+
+
+class Node(Entity):
+
+    def to_signal(self, action, graph):
+        # signal types: create or update
+        action = "node_%s" % action
+        kwargs = dict(action=action,
+                      name=self.name,
+                      type=self.type['name'],
+                      reference=self.reference,
+                      image=self.image,
+                      color=self.type['color'],
+                      url=self.url,
+                      description=self.description,
+                      properties=self.properties)
+        return Signal(**kwargs)
+
+
+class EdgeType(Entity):
+
+    def to_signal(self, action):
+        action = "edgetype_%s" % action
+        kwargs = dict(action=action)
+        kwargs.update(dict((k, self.get(k, None)) for k in ['name', 'color', 'name_alias', 'weighted',
+                                                            'properties', 'image_as_icon', 'image']))
+        return Signal(**kwargs)
+
+
+class NodeType(Entity):
+
+    def to_signal(self, action):
+        action = "nodetype_%s" % action
+        kwargs = dict(action=action)
+        kwargs.update(dict((k, self.get(k, None)) for k in ['name', 'color', 'name_alias', 'size_limit',
+                                                            'properties', 'image_as_icon', 'image', 'size']))
+        return Signal(**kwargs)
 
 
 class Graph(Entity):
@@ -32,13 +88,23 @@ class Graph(Entity):
         super(Graph, self).__init__(*args, **kwargs)
         self.edges = map(Edge, self.edges or [])
         self.nodes = map(Node, self.nodes or [])
-        self.node_types = map(Node, self.nodeTypes or [])
-        self.edge_types = map(Node, self.edgeTypes or [])
+        self.node_types = map(NodeType, self.nodeTypes or [])
+        self.edge_types = map(EdgeType, self.edgeTypes or [])
 
-    def get_node(self, id):
-        for node in self.nodes:
-            if node.id == id:
-                return node
+        # hash for quick search
+        self._edges = dict((edge.id, edge) for edge in self.edges)
+        self._nodes = dict((node.id, node) for node in self.nodes)
+        self._node_types = dict((t.id, t) for t in self.node_types)
+        self._edge_types = dict((t.id, t) for t in self.edge_types)
+
+    def get_node(self, node_id):
+        return self._nodes.get(node_id, None)
+
+    def get_edge_type(self, edge_type_id):
+        return self._edge_types.get(edge_type_id, None)
+
+    def get_node_type(self, node_type_id):
+        return self._node_types.get(node_type_id, None)
 
     def edges_for(self, node, direction):
         if isinstance(node, basestring):
@@ -57,10 +123,6 @@ class Graph(Entity):
 class GraphCommonsException(Exception):
     def __init__(self, status_code, message):
         self.status_code = status_code
-
-        if isinstance(message, unicode):
-            message = message.encode("utf-8")  # Otherwise, it will not be printed.
-
         self.message = message
 
     def __str__(self):
@@ -88,19 +150,19 @@ class GraphCommons(object):
 
     def make_request(self, method, endpoint, data=None, id=None):
         response = request(
-            method,
-            self.build_url(endpoint, id),
-            json=data,
-            headers={
-                "Authentication": self.api_key,
-                "Content-Type": "application/json"
-            }
+                method,
+                self.build_url(endpoint, id),
+                json=data,
+                headers={
+                    "Authentication": self.api_key,
+                    "Content-Type": "application/json"
+                }
         )
 
         if response.status_code in self.ERROR_CODES:
             raise GraphCommonsException(
-                status_code=response.status_code,
-                message=self.get_error_message(response)
+                    status_code=response.status_code,
+                    message=self.get_error_message(response)
             )
 
         return response
@@ -130,11 +192,33 @@ class GraphCommons(object):
         response = self.make_request('put', endpoint, data=kwargs)
         return Graph(**response.json()['graph'])
 
-    def clear_graph(self, graph_id):
-        graph = self.graphs(graph_id)
-        # Remove all nodes. (This also removes all edges.)
-        signals = map(lambda node: dict(action="node_delete", id=node.id), graph.nodes)
-        endpoint = "graphs/{}/add".format(graph_id)
-        kwargs = dict(signals=signals)
-        response = self.make_request("put", endpoint, data=kwargs)
-        return Graph(**response.json()['graph'])
+    def create_graph_from_path(self, name, path, base_graph):
+        kwargs = dict((k, base_graph.get(k, None)) for k in ['status', 'license', 'users', 'layout'])
+        kwargs['name'] = name
+        kwargs['description'] = u"{}\n{}".format(path.path_string, base_graph.description)
+        kwargs['subtitle'] = path.path_string
+
+        # Types
+        edge_type_ids = set([edge.type_id for edge in path.edges])
+        edge_types = map(base_graph.get_edge_type, edge_type_ids)
+        node_type_ids = set([node.type['id'] for node in path.nodes])
+        node_types = map(base_graph.get_node_type, node_type_ids)
+
+        # Add node and edge type Signals first.
+        signals = map(lambda entity: entity.to_signal('create'), chain(node_types, edge_types))
+        # Add node and edge Signals.
+        signals.extend(map(lambda entity: entity.to_signal('create', base_graph), chain(path.edges, path.nodes)))
+        return self.new_graph(signals=signals, **kwargs)
+
+    def paths(self, graph_id, kwargs):
+        end_point = 'graphs/%s/paths' % graph_id
+        response = self.make_request("get", end_point, data=kwargs).json()
+        edges = response['edges']
+        nodes = response['nodes']
+        paths = []
+        for path in response['paths']:
+            p = {'edges': map(Edge, (edges[edge_id] for edge_id in path['edges'])),
+                 'nodes': map(Node, (nodes[node_id] for node_id in path['nodes'])), 'dirs': path['dirs'],
+                 'path_string': path['path_string']}
+            paths.append(Path(**p))
+        return paths
