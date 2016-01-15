@@ -200,22 +200,47 @@ class GraphCommons(object):
         response = self.make_request("put", endpoint, data=kwargs)
         return Graph(**response.json()['graph'])
 
-    def create_graph_from_path(self, name, path, base_graph):
+    def create_graph_from_path(self, name, paths, base_graph):
+
         kwargs = dict((k, base_graph.get(k, None)) for k in ['status', 'license', 'users', 'layout'])
         kwargs['name'] = name
-        kwargs['description'] = u"{}\n{}".format(path.path_string, base_graph.description)
-        kwargs['subtitle'] = path.path_string
+        subtitle = ""
+        description = ""
+        edges = []
+        nodes = []
+        edge_type_ids = []
+        node_type_ids = []
+        for path in paths:
+            description = u"{}\n{}".format(description, path.path_string)
+            subtitle = u"{}\n{}".format(subtitle, path.path_string)
 
-        # Types
-        edge_type_ids = set([edge.type_id for edge in path.edges])
-        edge_types = map(base_graph.get_edge_type, edge_type_ids)
-        node_type_ids = set([node.type['id'] for node in path.nodes])
-        node_types = map(base_graph.get_node_type, node_type_ids)
+            # Type ids
+            edge_type_ids.extend([edge.type_id for edge in path.edges])
+            node_type_ids.extend([node.type['id'] for node in path.nodes])
+
+            edges.extend(path.edges)
+            nodes.extend(path.nodes)
+
+        # Add explanation of original graph.
+        kwargs['description'] = u"{}\n{}".format(description, base_graph.description)
+        kwargs['subtitle'] = u"{}\n{}".format(subtitle, base_graph.subtitle)
+
+        # Get edge_types by using their ids.
+        edge_types = map(base_graph.get_edge_type, set(edge_type_ids))
+        node_types = map(base_graph.get_node_type, set(node_type_ids))
 
         # Add node and edge type Signals first.
         signals = map(lambda entity: entity.to_signal('create'), chain(node_types, edge_types))
+
+        edge_ids = set()
+        node_ids = set()
+
+        # Remove duplicates for efficiency in graph creation.
+        edges = [e for e in edges if not (e.id in edge_ids or edge_ids.add(e.id))]
+        nodes = [n for n in nodes if not (n.id in node_ids or node_ids.add(n.id))]
+
         # Add node and edge Signals.
-        signals.extend(map(lambda entity: entity.to_signal('create', base_graph), chain(path.edges, path.nodes)))
+        signals.extend(map(lambda entity: entity.to_signal('create', base_graph), chain(edges, nodes)))
         return self.new_graph(signals=signals, **kwargs)
 
     def paths(self, graph_id, kwargs):
