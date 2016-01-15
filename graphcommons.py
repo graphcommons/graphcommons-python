@@ -145,7 +145,8 @@ class GraphCommons(object):
         parts = filter(bool, [self.base_url, endpoint, id])
         return '/'.join(parts)
 
-    def get_error_message(self, response):
+    @staticmethod
+    def get_error_message(response):
         try:
             bundle = response.json()
         except (ValueError, TypeError):
@@ -153,21 +154,15 @@ class GraphCommons(object):
         return bundle['msg']
 
     def make_request(self, method, endpoint, data=None, id=None):
-        response = request(
-                method,
-                self.build_url(endpoint, id),
-                json=data,
-                headers={
-                    "Authentication": self.api_key,
-                    "Content-Type": "application/json"
-                }
-        )
+        response = request(method, self.build_url(endpoint, id), json=data,
+                           headers={"Authentication": self.api_key,
+                                    "Content-Type": "application/json"
+                                    }
+                           )
 
         if response.status_code in self.ERROR_CODES:
-            raise GraphCommonsException(
-                    status_code=response.status_code,
-                    message=self.get_error_message(response)
-            )
+            raise GraphCommonsException(status_code=response.status_code,
+                                        message=GraphCommons.get_error_message(response))
 
         return response
 
