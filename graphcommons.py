@@ -43,12 +43,13 @@ class Node(Entity):
     def to_signal(self, action, graph):
         # signal types: create or update
         action = "node_%s" % action
+        node_type = graph.get_node_type(self['type_id'])
         kwargs = dict(action=action,
                       name=self['name'],
-                      type=self['type']['name'],
+                      type=self['type'],
                       reference=self.get('reference', None),
                       image=self.get('image', None),
-                      color=self['type']['color'],
+                      color=node_type['color'],
                       url=self.get('url', None),
                       description=self['description'],
                       properties=self['properties'])
