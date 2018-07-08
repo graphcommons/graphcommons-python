@@ -26,14 +26,14 @@ class Edge(Entity):
         from_node = graph.get_node(from_id)
         to_node = graph.get_node(to_id)
         kwargs = dict(action=action,
-                      name=self.edge_type,
-                      from_name=from_node.name,
-                      from_type=from_node.type,
-                      to_name=to_node.name,
-                      to_type=to_node.type,
+                      name=self['edge_type'],
+                      from_name=from_node['name'],
+                      from_type=from_node['type'],
+                      to_name=to_node['name'],
+                      to_type=to_node['type'],
                       reference=self.get('reference', None),
                       weight=self.get('weight'),
-                      properties=self.properties)
+                      properties=self['properties'])
         return Signal(**kwargs)
 
 
@@ -44,14 +44,14 @@ class Node(Entity):
         # signal types: create or update
         action = "node_%s" % action
         kwargs = dict(action=action,
-                      name=self.name,
-                      type=self.type['name'],
-                      reference=self.reference,
-                      image=self.image,
-                      color=self.type['color'],
-                      url=self.url,
-                      description=self.description,
-                      properties=self.properties)
+                      name=self['name'],
+                      type=self['type']['name'],
+                      reference=self.get('reference', None),
+                      image=self.get('image', None),
+                      color=self['type']['color'],
+                      url=self.get('url', None),
+                      description=self['description'],
+                      properties=self['properties'])
         return Signal(**kwargs)
 
 
@@ -61,8 +61,9 @@ class EdgeType(Entity):
     def to_signal(self, action):
         action = "edgetype_%s" % action
         kwargs = dict(action=action)
-        kwargs.update(dict((k, self.get(k, None)) for k in ['name', 'color', 'name_alias', 'weighted',
-                                                            'properties', 'image_as_icon', 'image']))
+        keys = ['name', 'color', 'name_alias', 'weighted', 'properties',
+                'image_as_icon', 'image']
+        kwargs.update(dict((k, self.get(k, None)) for k in keys))
         return Signal(**kwargs)
 
 
@@ -72,24 +73,25 @@ class NodeType(Entity):
     def to_signal(self, action):
         action = "nodetype_%s" % action
         kwargs = dict(action=action)
-        kwargs.update(dict((k, self.get(k, None)) for k in ['name', 'color', 'name_alias', 'size_limit',
-                                                            'properties', 'image_as_icon', 'image', 'size']))
+        keys = ['name', 'color', 'name_alias', 'size_limit', 'properties',
+                'image_as_icon', 'image', 'size']
+        kwargs.update(dict((k, self.get(k, None)) for k in keys))
         return Signal(**kwargs)
 
 
 class Graph(Entity):
     def __init__(self, *args, **kwargs):
         super(Graph, self).__init__(*args, **kwargs)
-        self.edges = map(Edge, self.edges or [])
-        self.nodes = map(Node, self.nodes or [])
-        self.node_types = map(NodeType, self.nodeTypes or [])
-        self.edge_types = map(EdgeType, self.edgeTypes or [])
+        self.edges = list(map(Edge, self['edges'] or []))
+        self.nodes = list(map(Node, self['nodes'] or []))
+        self.node_types = list(map(NodeType, self['nodeTypes'] or []))
+        self.edge_types = list(map(EdgeType, self['edgeTypes'] or []))
 
         # hash for quick search
-        self._edges = dict((edge.id, edge) for edge in self.edges)
-        self._nodes = dict((node.id, node) for node in self.nodes)
-        self._node_types = dict((t.id, t) for t in self.node_types)
-        self._edge_types = dict((t.id, t) for t in self.edge_types)
+        self._edges = dict((edge['id'], edge) for edge in self.edges)
+        self._nodes = dict((node['id'], node) for node in self.nodes)
+        self._node_types = dict((t['id'], t) for t in self.node_types)
+        self._edge_types = dict((t['id'], t) for t in self.edge_types)
 
     def get_node(self, node_id):
         return self._nodes.get(node_id, None)
@@ -105,7 +107,7 @@ class Graph(Entity):
             node = self.get_node(node)
 
         return [edge for edge in self.edges
-                if edge[direction] == node.id]
+                if edge[direction] == node['id']]
 
     def edges_from(self, node):
         return self.edges_for(node, 'from')
