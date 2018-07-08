@@ -180,13 +180,13 @@ class GraphCommons(object):
 
     def new_graph(self, signals=None, **kwargs):
         if signals is not None:
-            kwargs['signals'] = map(dict, signals)
+            kwargs['signals'] = list(map(dict, signals))
         response = self.make_request('post', 'graphs', data=kwargs)
         return Graph(**response.json()['graph'])
 
     def update_graph(self, id, signals=None, **kwargs):
         if signals is not None:
-            kwargs['signals'] = map(dict, signals)
+            kwargs['signals'] = list(map(dict, signals))
         endpoint = 'graphs/%s/add' % id
         response = self.make_request('put', endpoint, data=kwargs)
         return Graph(**response.json()['graph'])
