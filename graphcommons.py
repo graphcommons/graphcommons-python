@@ -1,31 +1,22 @@
+from collections import UserDict
 from requests.api import request
 from itertools import chain
 
 
-def extend(base, name=None, **kwargs):
-    return type(name, (base,), kwargs)
+class Entity(UserDict):
+    """Base class for all objects."""
 
 
-class Entity(dict):
-    __getattr__ = dict.get
-
-    def __repr__(self):
-        printable = self.name or self.id
-
-        if not printable:
-            return super(Entity, self).__repr__()
-
-        return '%s: %s' % (
-            self.__class__.__name__,
-            printable.encode("utf-8")
-        )
+class Signal(Entity):
+    """Represents a signal operation in the Graph Commons infrastructure."""
 
 
-Signal = extend(Entity, 'Signal')
-Path = extend(Entity, 'Path')
+class Path(Entity):
+    """Represents a path object in the Graph Commons infrastructure."""
 
 
 class Edge(Entity):
+    """Represents an edge object in the Graph Commons infrastructure."""
 
     def to_signal(self, action, graph):
         # signal types: create or update
@@ -47,6 +38,7 @@ class Edge(Entity):
 
 
 class Node(Entity):
+    """Represents a node object in the Graph Commons infrastructure."""
 
     def to_signal(self, action, graph):
         # signal types: create or update
@@ -64,6 +56,7 @@ class Node(Entity):
 
 
 class EdgeType(Entity):
+    """Represents an edge type object in the Graph Commons infrastructure."""
 
     def to_signal(self, action):
         action = "edgetype_%s" % action
@@ -74,6 +67,7 @@ class EdgeType(Entity):
 
 
 class NodeType(Entity):
+    """Represents a node type object in the Graph Commons infrastructure."""
 
     def to_signal(self, action):
         action = "nodetype_%s" % action
