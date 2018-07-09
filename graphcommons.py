@@ -122,7 +122,7 @@ class Graph(Entity):
     def sync(self, graph_commons):
         """Synchronize local and remote representations."""
         if self['id'] is None:
-            return {}
+            return
 
         remote_graph = graph_commons.graphs(self['id'])
 
