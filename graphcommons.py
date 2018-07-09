@@ -131,10 +131,10 @@ class Graph(Entity):
         self.nodes = remote_graph.nodes
         self.node_types = remote_graph.node_types
         self.edge_types = remote_graph.edge_types
-        self._edges = dict((edge.id, edge) for edge in self.edges)
-        self._nodes = dict((node.id, node) for node in self.nodes)
-        self._node_types = dict((t.id, t) for t in self.node_types)
-        self._edge_types = dict((t.id, t) for t in self.edge_types)
+        self._edges = dict((edge['id'], edge) for edge in self.edges)
+        self._nodes = dict((node['id'], node) for node in self.nodes)
+        self._node_types = dict((t['id'], t) for t in self.node_types)
+        self._edge_types = dict((t['id'], t) for t in self.edge_types)
 
 
 class GraphCommonsException(Exception):
