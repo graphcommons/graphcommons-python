@@ -1,31 +1,22 @@
+from collections import UserDict
 from requests.api import request
 from itertools import chain
 
 
-def extend(base, name=None, **kwargs):
-    return type(name, (base,), kwargs)
+class Entity(UserDict):
+    """Base class for all objects."""
 
 
-class Entity(dict):
-    __getattr__ = dict.get
-
-    def __repr__(self):
-        printable = self.name or self.id
-
-        if not printable:
-            return super(Entity, self).__repr__()
-
-        return '%s: %s' % (
-            self.__class__.__name__,
-            printable.encode("utf-8")
-        )
+class Signal(Entity):
+    """Represents a signal operation in the Graph Commons infrastructure."""
 
 
-Signal = extend(Entity, 'Signal')
-Path = extend(Entity, 'Path')
+class Path(Entity):
+    """Represents a path object in the Graph Commons infrastructure."""
 
 
 class Edge(Entity):
+    """Represents an edge object in the Graph Commons infrastructure."""
 
     def to_signal(self, action, graph):
         # signal types: create or update
@@ -35,67 +26,73 @@ class Edge(Entity):
         from_node = graph.get_node(from_id)
         to_node = graph.get_node(to_id)
         kwargs = dict(action=action,
-                      name=self.edge_type,
-                      from_name=from_node.name,
-                      from_type=from_node.type,
-                      to_name=to_node.name,
-                      to_type=to_node.type,
+                      name=self['edge_type'],
+                      from_name=from_node['name'],
+                      from_type=from_node['type'],
+                      to_name=to_node['name'],
+                      to_type=to_node['type'],
                       reference=self.get('reference', None),
                       weight=self.get('weight'),
-                      properties=self.properties)
+                      properties=self['properties'])
         return Signal(**kwargs)
 
 
 class Node(Entity):
+    """Represents a node object in the Graph Commons infrastructure."""
 
     def to_signal(self, action, graph):
         # signal types: create or update
         action = "node_%s" % action
+        node_type = graph.get_node_type(self['type_id'])
         kwargs = dict(action=action,
-                      name=self.name,
-                      type=self.type['name'],
-                      reference=self.reference,
-                      image=self.image,
-                      color=self.type['color'],
-                      url=self.url,
-                      description=self.description,
-                      properties=self.properties)
+                      name=self['name'],
+                      type=self['type'],
+                      reference=self.get('reference', None),
+                      image=self.get('image', None),
+                      color=node_type['color'],
+                      url=self.get('url', None),
+                      description=self['description'],
+                      properties=self['properties'])
         return Signal(**kwargs)
 
 
 class EdgeType(Entity):
+    """Represents an edge type object in the Graph Commons infrastructure."""
 
     def to_signal(self, action):
         action = "edgetype_%s" % action
         kwargs = dict(action=action)
-        kwargs.update(dict((k, self.get(k, None)) for k in ['name', 'color', 'name_alias', 'weighted',
-                                                            'properties', 'image_as_icon', 'image']))
+        keys = ['name', 'color', 'name_alias', 'weighted', 'properties',
+                'image_as_icon', 'image']
+        kwargs.update(dict((k, self.get(k, None)) for k in keys))
         return Signal(**kwargs)
 
 
 class NodeType(Entity):
+    """Represents a node type object in the Graph Commons infrastructure."""
 
     def to_signal(self, action):
         action = "nodetype_%s" % action
         kwargs = dict(action=action)
-        kwargs.update(dict((k, self.get(k, None)) for k in ['name', 'color', 'name_alias', 'size_limit',
-                                                            'properties', 'image_as_icon', 'image', 'size']))
+        keys = ['name', 'color', 'name_alias', 'size_limit', 'properties',
+                'image_as_icon', 'image', 'size']
+        kwargs.update(dict((k, self.get(k, None)) for k in keys))
         return Signal(**kwargs)
 
 
 class Graph(Entity):
     def __init__(self, *args, **kwargs):
         super(Graph, self).__init__(*args, **kwargs)
-        self.edges = map(Edge, self.edges or [])
-        self.nodes = map(Node, self.nodes or [])
-        self.node_types = map(NodeType, self.nodeTypes or [])
-        self.edge_types = map(EdgeType, self.edgeTypes or [])
+        self.edges = list(map(Edge, self['edges'] or []))
+        self.nodes = list(map(Node, self['nodes'] or []))
+        self.node_types = list(map(NodeType, self['nodeTypes'] or []))
+        self.edge_types = list(map(EdgeType, self['edgeTypes'] or []))
 
         # hash for quick search
-        self._edges = dict((edge.id, edge) for edge in self.edges)
-        self._nodes = dict((node.id, node) for node in self.nodes)
-        self._node_types = dict((t.id, t) for t in self.node_types)
-        self._edge_types = dict((t.id, t) for t in self.edge_types)
+        self._edges = dict((edge['id'], edge) for edge in self.edges)
+        self._nodes = dict((node['id'], node) for node in self.nodes)
+        self._node_types = dict((t['id'], t) for t in self.node_types)
+        self._edge_types = dict((t['id'], t) for t in self.edge_types)
 
     def get_node(self, node_id):
         return self._nodes.get(node_id, None)
@@ -111,7 +108,7 @@ class Graph(Entity):
             node = self.get_node(node)
 
         return [edge for edge in self.edges
-                if edge[direction] == node.id]
+                if edge[direction] == node['id']]
 
     def edges_from(self, node):
         return self.edges_for(node, 'from')

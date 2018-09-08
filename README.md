@@ -24,10 +24,10 @@ pip install graphcommons
 ### Get graph
 ```python
 graph = graphcommons.graphs('7141da86-2a40-4fdc-a7ac-031b434b9653')
-print(graph.name)  # Hello from python
+print(graph['name'])  # Hello from python
 
 for node in graph.nodes:
-    print(node.name)
+    print(node['name'])
 
     print(graph.edges_from(node))  # edges directed from the node
     print(graph.edges_to(node))  # edges directed to the node
@@ -60,7 +60,7 @@ graph = graphcommons.new_graph(
 )
 
 
-print(graph.id)  # added graph's id
+print(graph['id'])  # added graph's id
 ```
 
 ### Update Graph
