@@ -119,6 +119,23 @@ class Graph(Entity):
     def edges_to(self, node):
         return self.edges_for(node, 'to')
 
+    def sync(self, graph_commons):
+        """Synchronize local and remote representations."""
+        if self['id'] is None:
+            return
+
+        remote_graph = graph_commons.graphs(self['id'])
+
+        # TODO: less forceful, more elegant
+        self.edges = remote_graph.edges
+        self.nodes = remote_graph.nodes
+        self.node_types = remote_graph.node_types
+        self.edge_types = remote_graph.edge_types
+        self._edges = dict((edge['id'], edge) for edge in self.edges)
+        self._nodes = dict((node['id'], node) for node in self.nodes)
+        self._node_types = dict((t['id'], t) for t in self.node_types)
+        self._edge_types = dict((t['id'], t) for t in self.edge_types)
+
 
 class GraphCommonsException(Exception):
     def __init__(self, status_code, message):
