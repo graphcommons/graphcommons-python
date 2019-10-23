@@ -9,5 +9,5 @@ setup(
     author='fatiherikli',
     author_email='fatiherikli@gmail.com',
     description='Python Wrapper For Graph Commons API.',
-    install_requires=['requests==2.5.3'],
+    install_requires=['requests==2.20.0'],
 )
